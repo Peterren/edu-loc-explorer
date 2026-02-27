@@ -1,4 +1,4 @@
-# Edu Location Service
+# Education + Airbnb Location Explorer
 
 An interactive UI for exploring **US locations** that balance:
 
@@ -7,21 +7,21 @@ An interactive UI for exploring **US locations** that balance:
 - **Financial feasibility** (can 6 months of Airbnb cover interest + property tax?)
 - **Lifestyle factors** (safety, amenities, airport access, community)
 
-Backend is provided by **AI Builders Space API**, using its Tavily-backed search and OpenAI-compatible models.
+Backend is provided by **AI Builders Space API**, using its Tavily-backed search and Grok-4-Fast model.
 
 ## Setup
 
 1. **Install dependencies**
    ```bash
-   cd chat-gui
+   cd edu-loc-explorer
    npm install
    ```
 
 2. **Configure AI Builders token**
-   - Use the same token for development and deployment (see AI Builders Coach: `explain_authentication_model`, `get_deployment_guide`).
-   - Copy `.env.local.example` to `.env.local`
+   - Get your token from the AI Builders platform.
+   - Copy `.env.local.example` to `.env.local` (or create `.env.local`).
    - Set `AI_BUILDER_TOKEN=your_token_here`
-   - Do not hardcode the token; add `.env` to `.gitignore`.
+   - Do not commit `.env.local`; it is in `.gitignore`.
 
 3. **Run the app**
    ```bash
@@ -29,17 +29,56 @@ Backend is provided by **AI Builders Space API**, using its Tavily-backed search
    ```
    Open [http://localhost:3000](http://localhost:3000).
 
+## Usage
+
+### State selection
+
+- **Buttons**: Click state names (California, Washington, Texas, etc.) to select or deselect.
+- **Map**: Hover over the US map to see state names; click to toggle selection. Only the 10 pilot states are selectable; others show “Not included in this search.”
+- **Unselect all**: Clears all selected states.
+- **Run analysis**: Fetches ranked metros for the selected states.
+
+### Score breakdown
+
+Each metro is ranked using web search data (Tavily) and an AI model (Grok). The total score is a weighted combination of four sub-scores (0–100 each):
+
+| Score | Weight | Description |
+|-------|--------|-------------|
+| **Education** | 45% | Public high school quality, AP/IB pipeline, college-going rates, proximity to strong public universities |
+| **Financial** | 25% | Whether conservative STR income (~6 months/year) can cover interest and property tax |
+| **STR viability** | 15% | Clarity and friendliness of short-term rental rules for owner-occupied or mixed-use |
+| **Lifestyle** | 15% | Safety, amenities, airport access, community presence |
+
+Expand the “How scores are calculated” section in the app for details.
+
+### Workflow
+
+1. Select one or more states (buttons or map).
+2. Click **Run analysis**.
+3. View ranked metros in the results table; expand rows for detailed notes.
+4. Click **View ZIPs** on a metro to get ZIP suggestions.
+5. Click **View listings** on a ZIP to see property links (Redfin, Zillow, Opendoor).
+
 ## Backend (AI Builders)
 
-- **API**: [AI Builders Space API](https://space.ai-builders.com/backend) — base URL from `get_base_url` MCP tool.
-- **Auth**: Bearer token via `AI_BUILDER_TOKEN` (see `get_auth_token` / deployment guide).
-- **Chat / models**: OpenAI-compatible `POST .../v1/chat/completions` with models like `grok-4-fast`, `deepseek`, etc.
-- **Search**: Tavily-style `POST .../search` endpoint used for live web research (schools, STR rules, Airbnb metrics…).
+- **API**: [AI Builders Space API](https://space.ai-builders.com/backend/v1)
+- **Auth**: Bearer token via `AI_BUILDER_TOKEN`
+- **Search**: `POST /v1/search/` — Tavily-style web search
+- **Models**: Grok-4-Fast (via OpenAI-compatible chat completions)
 
-## Features
+## API routes
 
-- **Location explorer (root `/`)**: Select US states, run analysis, and see ranked metros with:
-  - Overall score (0–100)
-  - **Education**, **Financial**, **STR**, and **Lifestyle** sub-scores
-  - Click-to-expand explanations for how each score was derived
-- **Search + summarize API**: `/api/search-basic` – minimal Tavily search → LLM summary pipeline
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/location-scores` | POST | Rank metros by education, financial, STR, and lifestyle scores |
+| `/api/zip-suggestions` | POST | Get ZIP recommendations for a metro |
+| `/api/zip-listings` | POST | Get property listings for a ZIP |
+| `/api/search-basic` | POST | Tavily search + optional LLM summary |
+
+## Deployment
+
+Deployed to **AI Builders Space**: [https://edu-loc-explorer.ai-builders.space/](https://edu-loc-explorer.ai-builders.space/)
+
+- **Repo**: [github.com/Peterren/edu-loc-explorer](https://github.com/Peterren/edu-loc-explorer)
+- **Stack**: Next.js 15, Docker, Koyeb
+- `AI_BUILDER_TOKEN` is injected automatically at runtime.
