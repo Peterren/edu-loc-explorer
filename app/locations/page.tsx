@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { LocationScore, StateCode, LocationScoresResponse } from "../lib/locationScores";
 import type { ZipSuggestion } from "../lib/zipSuggestions";
 import type { ZipListing } from "../lib/zipListings";
+import USStateMap from "../components/USStateMap";
 
 const ALL_STATES: { code: StateCode; label: string }[] = [
   { code: "CA", label: "California" },
@@ -36,6 +37,10 @@ export default function LocationsPage() {
     setSelectedStates((prev) =>
       prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
     );
+  };
+
+  const clearAllStates = () => {
+    setSelectedStates([]);
   };
 
   const runAnalysis = async () => {
@@ -145,19 +150,17 @@ export default function LocationsPage() {
 
   return (
     <main className="flex h-screen flex-col bg-[hsl(var(--surface))] text-gray-100">
-      <header className="flex items-center justify-between border-b border-[hsl(var(--border))] px-4 py-3">
-        <div>
-          <h1 className="text-lg font-semibold">Education + Airbnb Location Explorer</h1>
-          <p className="text-xs text-gray-400">
-            Select states, then rank metros by education, financial feasibility, STR rules, and
-            lifestyle. Data is fetched live via the AI Builders Space Tavily search API.
-          </p>
-        </div>
+      <header className="border-b border-[hsl(var(--border))] px-4 py-3">
+        <h1 className="text-lg font-semibold">Education + Airbnb Location Explorer</h1>
+        <p className="text-xs text-gray-400">
+          Select states, then rank metros by education, financial feasibility, STR rules, and
+          lifestyle. Data is fetched live via the AI Builders Space Tavily search API.
+        </p>
       </header>
 
       <section className="border-b border-[hsl(var(--border))] bg-[hsl(var(--surface))] px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="text-xs font-medium text-gray-300">States:</div>
+          <div className="text-xs font-medium text-gray-300">Select states:</div>
           <div className="flex flex-wrap gap-2">
             {ALL_STATES.map((s) => {
               const active = selectedStates.includes(s.code);
@@ -179,13 +182,31 @@ export default function LocationsPage() {
           </div>
           <button
             type="button"
+            onClick={clearAllStates}
+            disabled={selectedStates.length === 0}
+            title="Unselect all states"
+            className="rounded-lg border border-amber-600/50 bg-amber-900/20 px-3 py-2 text-xs font-medium text-amber-200 transition hover:bg-amber-900/40 hover:text-amber-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Unselect all
+          </button>
+          <button
+            type="button"
             onClick={runAnalysis}
             disabled={loading || selectedStates.length === 0}
-            className="ml-auto rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
           >
             {loading ? "Analyzing…" : "Run analysis"}
           </button>
         </div>
+
+        <div className="mt-3 flex justify-center">
+          <USStateMap
+            selectedStates={selectedStates}
+            allowedStates={ALL_STATES.map((s) => s.code)}
+            onToggleState={toggleState}
+          />
+        </div>
+
         {error && (
           <p className="mt-2 text-xs text-red-400">
             Error: {error}
@@ -194,6 +215,40 @@ export default function LocationsPage() {
       </section>
 
       <section className="flex-1 overflow-y-auto px-4 py-4">
+        <details className="group mb-4 rounded-lg border border-[hsl(var(--border))] bg-white/5">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-gray-300 transition hover:text-gray-100 [&::-webkit-details-marker]:hidden">
+            <span className="transition group-open:rotate-90">›</span>
+            How scores are calculated
+          </summary>
+          <div className="border-t border-[hsl(var(--border))] px-4 py-3 text-xs text-gray-300">
+            <p className="mb-3">
+              Each metro is ranked using web search data (Tavily) and an AI model (Grok). The total
+              score is a weighted combination of four sub-scores (0–100 each):
+            </p>
+            <ul className="space-y-2">
+              <li>
+                <span className="font-semibold text-blue-300">Education (45%)</span> — Public high
+                school quality, AP/IB pipeline, college-going rates, and proximity to strong public
+                universities.
+              </li>
+              <li>
+                <span className="font-semibold text-blue-300">Financial (25%)</span> — Whether
+                conservative STR income during ~6 months/year can plausibly cover interest and
+                property tax for a typical middle/upper-middle property.
+              </li>
+              <li>
+                <span className="font-semibold text-blue-300">STR viability (15%)</span> —
+                Clarity and friendliness of short-term rental rules for owner-occupied or mixed-use
+                (live ~6 months, rent ~6 months).
+              </li>
+              <li>
+                <span className="font-semibold text-blue-300">Lifestyle (15%)</span> — Safety,
+                amenities, airport access, and community presence where relevant.
+              </li>
+            </ul>
+          </div>
+        </details>
+
         {!results && !loading && !error && (
           <p className="text-sm text-gray-400">
             Select one or more states and click <span className="font-semibold">Run analysis</span>{" "}
