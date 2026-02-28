@@ -5,6 +5,8 @@ import type { LocationScore, StateCode, LocationScoresResponse } from "../lib/lo
 import type { ZipSuggestion } from "../lib/zipSuggestions";
 import type { ZipListing } from "../lib/zipListings";
 import USStateMap from "../components/USStateMap";
+import { ShortlistProvider, useShortlist } from "../components/ShortlistContext";
+import ShortlistPanel from "../components/ShortlistPanel";
 
 const ALL_STATES: { code: StateCode; label: string }[] = [
   { code: "CA", label: "California" },
@@ -19,7 +21,45 @@ const ALL_STATES: { code: StateCode; label: string }[] = [
   { code: "NY", label: "New York" },
 ];
 
-export default function LocationsPage() {
+function FilledStarIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="h-4 w-4"
+    >
+      <path
+        fillRule="evenodd"
+        d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function OutlineStarIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="h-4 w-4"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.601a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"
+      />
+    </svg>
+  );
+}
+
+function LocationsContent() {
+  const { addToShortlist, removeFromShortlist, isInShortlist, isFull } = useShortlist();
+
   const [selectedStates, setSelectedStates] = useState<StateCode[]>(["CA", "WA", "TX"]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +191,9 @@ export default function LocationsPage() {
   return (
     <main className="flex h-screen flex-col bg-[hsl(var(--surface))] text-gray-100">
       <header className="border-b border-[hsl(var(--border))] px-4 py-3">
-        <h1 className="text-lg font-semibold">Education + Airbnb Location Explorer</h1>
+        <h1 className="text-lg font-semibold bg-gradient-to-r from-indigo-400 to-blue-400 bg-clip-text text-transparent">
+          Education + Airbnb Location Explorer
+        </h1>
         <p className="text-xs text-gray-400">
           Select states, then rank metros by education, financial feasibility, STR rules, and
           lifestyle. Data is fetched live via the AI Builders Space Tavily search API.
@@ -171,7 +213,7 @@ export default function LocationsPage() {
                   onClick={() => toggleState(s.code)}
                   className={`rounded-full border px-3 py-1 text-xs transition ${
                     active
-                      ? "border-blue-400 bg-blue-500/20 text-blue-100"
+                      ? "border-indigo-400 bg-indigo-500/20 text-indigo-100"
                       : "border-[hsl(var(--border))] bg-white/5 text-gray-300 hover:bg-white/10"
                   }`}
                 >
@@ -233,24 +275,36 @@ export default function LocationsPage() {
               score is a weighted combination of four sub-scores (0–100 each):
             </p>
             <ul className="space-y-2">
-              <li>
-                <span className="font-semibold text-blue-300">Education (45%)</span> — Public high
-                school quality, AP/IB pipeline, college-going rates, and proximity to strong public
-                universities.
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-indigo-400" />
+                <span>
+                  <span className="font-semibold text-indigo-400">Education (45%)</span> — Public
+                  high school quality, AP/IB pipeline, college-going rates, and proximity to strong
+                  public universities.
+                </span>
               </li>
-              <li>
-                <span className="font-semibold text-blue-300">Financial (25%)</span> — Whether
-                conservative STR income during ~6 months/year can plausibly cover interest and
-                property tax for a typical middle/upper-middle property.
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-emerald-400" />
+                <span>
+                  <span className="font-semibold text-emerald-400">Financial (25%)</span> — Whether
+                  conservative STR income during ~6 months/year can plausibly cover interest and
+                  property tax for a typical middle/upper-middle property.
+                </span>
               </li>
-              <li>
-                <span className="font-semibold text-blue-300">STR viability (15%)</span> —
-                Clarity and friendliness of short-term rental rules for owner-occupied or mixed-use
-                (live ~6 months, rent ~6 months).
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-violet-400" />
+                <span>
+                  <span className="font-semibold text-violet-400">STR viability (15%)</span> —
+                  Clarity and friendliness of short-term rental rules for owner-occupied or
+                  mixed-use (live ~6 months, rent ~6 months).
+                </span>
               </li>
-              <li>
-                <span className="font-semibold text-blue-300">Lifestyle (15%)</span> — Safety,
-                amenities, airport access, and community presence where relevant.
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-amber-400" />
+                <span>
+                  <span className="font-semibold text-amber-400">Lifestyle (15%)</span> — Safety,
+                  amenities, airport access, and community presence where relevant.
+                </span>
               </li>
             </ul>
           </div>
@@ -290,15 +344,20 @@ export default function LocationsPage() {
                   <th className="px-3 py-2">STR</th>
                   <th className="px-3 py-2">Lifestyle</th>
                   <th className="px-3 py-2">ZIPs</th>
+                  <th className="px-3 py-2">Save</th>
                 </tr>
               </thead>
               <tbody>
                 {results.map((loc, idx) => (
                   <tr
                     key={loc.id}
-                    className={idx % 2 === 0 ? "bg-white/0" : "bg-white/5"}
+                    className={`hover:bg-white/5 ${idx % 2 === 0 ? "bg-white/0" : "bg-white/5"}`}
                   >
-                    <td className="px-3 py-2 align-top text-gray-400">{idx + 1}</td>
+                    <td className="px-3 py-2 align-top">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-xs text-gray-300">
+                        {idx + 1}
+                      </div>
+                    </td>
                     <td className="px-3 py-2 align-top">
                       <details>
                         <summary className="cursor-pointer text-xs font-semibold text-gray-100">
@@ -335,20 +394,30 @@ export default function LocationsPage() {
                       </details>
                     </td>
                     <td className="px-3 py-2 align-top text-gray-200">{loc.state}</td>
-                    <td className="px-3 py-2 align-top text-gray-100">
-                      {Math.round(loc.totalScore)}
+                    <td className="px-3 py-2 align-top">
+                      <span className="text-white font-bold text-sm">
+                        {Math.round(loc.totalScore)}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 align-top text-gray-200">
-                      {Math.round(loc.educationScore)}
+                    <td className="px-3 py-2 align-top">
+                      <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold text-indigo-400 bg-indigo-500/20 border border-indigo-500/40">
+                        {Math.round(loc.educationScore)}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 align-top text-gray-200">
-                      {Math.round(loc.financialScore)}
+                    <td className="px-3 py-2 align-top">
+                      <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold text-emerald-400 bg-emerald-500/20 border border-emerald-500/40">
+                        {Math.round(loc.financialScore)}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 align-top text-gray-200">
-                      {Math.round(loc.strViabilityScore)}
+                    <td className="px-3 py-2 align-top">
+                      <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold text-violet-400 bg-violet-500/20 border border-violet-500/40">
+                        {Math.round(loc.strViabilityScore)}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 align-top text-gray-200">
-                      {Math.round(loc.lifestyleScore)}
+                    <td className="px-3 py-2 align-top">
+                      <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold text-amber-400 bg-amber-500/20 border border-amber-500/40">
+                        {Math.round(loc.lifestyleScore)}
+                      </span>
                     </td>
                     <td className="px-3 py-2 align-top">
                       <button
@@ -358,6 +427,30 @@ export default function LocationsPage() {
                       >
                         View ZIPs
                       </button>
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      {isInShortlist(loc.id) ? (
+                        <button
+                          type="button"
+                          onClick={() => removeFromShortlist(loc.id)}
+                          className="text-yellow-400 transition hover:text-yellow-300"
+                          title="Remove from shortlist"
+                        >
+                          <FilledStarIcon />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => !isFull && addToShortlist(loc)}
+                          disabled={isFull}
+                          className={`text-gray-400 transition hover:text-yellow-400 ${
+                            isFull ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          title={isFull ? "Shortlist is full (max 2)" : "Save to shortlist"}
+                        >
+                          <OutlineStarIcon />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -495,3 +588,11 @@ export default function LocationsPage() {
   );
 }
 
+export default function LocationsPage() {
+  return (
+    <ShortlistProvider>
+      <LocationsContent />
+      <ShortlistPanel />
+    </ShortlistProvider>
+  );
+}
