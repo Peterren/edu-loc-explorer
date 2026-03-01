@@ -251,3 +251,11 @@ function SearchContent() {
     </div>
   );
 }
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <SearchContent />
+    </Suspense>
+  );
+}
