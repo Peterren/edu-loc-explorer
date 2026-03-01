@@ -1,5 +1,4 @@
-import LocationsPage from "./locations/page";
-
+import { redirect } from "next/navigation";
 export default function Home() {
-  return <LocationsPage />;
+  redirect("/search");
 }

@@ -2,12 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --sidebar: 240 6% 10%;
-  --surface: 222 47% 11%;
-  --border: 217 33% 25%;
+body {
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
-body {
-  @apply bg-surface text-gray-100 antialiased;
+* {
+  box-sizing: border-box;
 }
