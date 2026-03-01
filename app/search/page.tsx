@@ -59,7 +59,7 @@ function SearchContent() {
       const res = await fetch("/api/identify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: inputUrl.trim() }),
+        body: JSON.stringify({ input: urlInput.trim() }),
       });
       if (!res.ok) throw new Error("Could not identify product");
       const info: ProductInfo = await res.json();
@@ -118,15 +118,15 @@ function SearchContent() {
           <div className="flex flex-col gap-4">
             <form onSubmit={(e) => { e.preventDefault(); handleIdentify(urlInput); }} className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-[#555] uppercase tracking-widest">Official product URL</label>
+                <label className="text-xs text-[#555] uppercase tracking-widest">Product URL or SKU</label>
                 <textarea
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="https://www.harrywinston.com/en/products/..."
+                  placeholder="Paste a URL or enter a SKU (e.g. WBDPRDPAR, B6035517...)"
                   rows={2}
                   className="w-full resize-none rounded-xl border border-[#2a2a2a] bg-[#141414] px-4 py-3 text-sm text-white placeholder-[#555] focus:border-[#444] focus:outline-none"
                 />
-                <p className="text-xs text-[#444]">Works with Chanel, Cartier, Harry Winston, Hermès, Louis Vuitton, Van Cleef &amp; more</p>
+                <p className="text-xs text-[#444]">Paste an official product URL, or type a SKU (e.g. WBDPRDPAR)</p>
               </div>
               <button
                 type="submit"
@@ -219,3 +219,4 @@ export default function SearchPage() {
     </Suspense>
   );
 }
+
