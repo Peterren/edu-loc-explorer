@@ -1,0 +1,22 @@
+name: Deploy to AI Builders Space
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger AI Builders Space deployment
+        run: |
+          curl -X POST "https://space.ai-builders.com/backend/v1/deployments" \
+            -H "Authorization: Bearer ${{ secrets.AI_BUILDERS_DEPLOY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "repo_url": "https://github.com/Peterren/edu-loc-explorer",
+              "service_name": "edu-loc-explorer",
+              "branch": "main",
+              "port": 8000
+            }'
