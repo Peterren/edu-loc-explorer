@@ -19,14 +19,15 @@ function SearchContent() {
   const [result, setResult] = useState<PriceResult | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [productUrl, setProductUrl] = useState("");
 
-  const fetchPrices = useCallback(async (confirmedQuery: string, brand: string) => {
+  const fetchPrices = useCallback(async (confirmedQuery: string, brand: string, productUrl?: string) => {
     setStage("loading");
     try {
       const res = await fetch("/api/price-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirmedQuery, brand }),
+        body: JSON.stringify({ confirmedQuery, brand, productUrl }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Search failed");
       const data: PriceResult = await res.json();
@@ -57,7 +58,7 @@ function SearchContent() {
       const res = await fetch("/api/clarify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, productUrl: productUrl.trim() || undefined }),
       });
       if (!res.ok) throw new Error("Clarification failed");
       const data: ClarifyResponse = await res.json();
@@ -74,7 +75,7 @@ function SearchContent() {
     if (!clarify) return;
     const parts = [clarify.productSummary, ...Object.values(answers).filter(v => v && v !== "N/A" && v.trim() !== "")];
     const confirmedQuery = parts.join(" ");
-    fetchPrices(confirmedQuery, clarify.brand);
+    fetchPrices(confirmedQuery, clarify.brand, clarify.productUrl);
   };
 
   const confirmedQuery = clarify
@@ -259,4 +260,6 @@ export default function SearchPage() {
     </Suspense>
   );
 }
+
+
 

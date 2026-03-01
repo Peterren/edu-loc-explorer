@@ -31,7 +31,11 @@ function formatCurrency(amount: number, currency: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { confirmedQuery, brand } = await req.json();
+    const { confirmedQuery, brand, productUrl } = await req.json();
+    // Extract SKU from product URL if provided
+    const skuMatch = productUrl ? productUrl.match(/[^/]+$/) : null;
+    const sku = skuMatch ? skuMatch[0] : null;
+    const skuQuery = sku ? `${confirmedQuery} ${sku}` : confirmedQuery;
     const token = process.env.AI_BUILDER_TOKEN!;
 
     // FX rates
@@ -46,10 +50,10 @@ export async function POST(req: NextRequest) {
 
     // Parallel searches — broader queries to catch boutique/press prices
     const [usResults, hkResults, jpResults, frResults] = await Promise.all([
-      tavilySearch(`"${confirmedQuery}" price USD`, token),
-      tavilySearch(`"${confirmedQuery}" price Hong Kong HKD`, token),
-      tavilySearch(`"${confirmedQuery}" price Japan JPY`, token),
-      tavilySearch(`"${confirmedQuery}" price France EUR`, token),
+      tavilySearch(`"${confirmedQuery}" price USD ${sku ?? ""}`.trim(), token),
+      tavilySearch(`"${confirmedQuery}" price Hong Kong HKD ${sku ?? ""}`.trim(), token),
+      tavilySearch(`"${confirmedQuery}" price Japan JPY ${sku ?? ""}`.trim(), token),
+      tavilySearch(`"${confirmedQuery}" price France EUR ${sku ?? ""}`.trim(), token),
     ]);
 
     // Fallback broader searches if empty
@@ -172,3 +176,4 @@ Rules:
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
+

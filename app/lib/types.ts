@@ -33,7 +33,9 @@ export interface ClarifyQuestion {
 }
 
 export interface ClarifyResponse {
+  productUrl?: string;
   questions: ClarifyQuestion[];
   productSummary: string;
   brand: string;
 }
+
