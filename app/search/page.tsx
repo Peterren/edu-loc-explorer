@@ -72,7 +72,7 @@ function SearchContent() {
 
   const handleClarifySubmit = () => {
     if (!clarify) return;
-    const parts = [clarify.productSummary, ...Object.values(answers).filter(Boolean)];
+    const parts = [clarify.productSummary, ...Object.values(answers).filter(v => v && v !== "N/A" && v.trim() !== "")];
     const confirmedQuery = parts.join(" ");
     fetchPrices(confirmedQuery, clarify.brand);
   };
@@ -259,3 +259,4 @@ export default function SearchPage() {
     </Suspense>
   );
 }
+

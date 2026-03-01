@@ -1,25 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { PriceResult, RegionPrice } from "../../lib/types";
 
-async function tavilySearch(query: string, token: string) {
-  const res = await fetch("https://space.ai-builders.com/backend/v1/search/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ query, max_results: 5 }),
-  });
-  if (!res.ok) return [];
-  const json = await res.json();
-  return (json.results ?? []).map((r: { title: string; url: string; content: string }) =>
-    `${r.title} | ${r.url} | ${r.content?.slice(0, 300)}`
-  ).join("\n");
+async function tavilySearch(query: string, token: string): Promise<string> {
+  try {
+    const res = await fetch("https://space.ai-builders.com/backend/v1/search/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ query, max_results: 6 }),
+    });
+    if (!res.ok) return "";
+    const json = await res.json();
+    const results = json.results ?? json.content ?? [];
+    if (!Array.isArray(results) || results.length === 0) return "";
+    return results.map((r: { title?: string; url?: string; content?: string }) =>
+      `${r.title ?? ""} | ${r.url ?? ""} | ${(r.content ?? "").slice(0, 400)}`
+    ).join("\n");
+  } catch {
+    return "";
+  }
 }
 
 function formatCurrency(amount: number, currency: string): string {
-  if (currency === "USD") return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  if (currency === "EUR") return `\u20AC${amount.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  if (currency === "HKD") return `HK$${amount.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  if (currency === "JPY") return `\u00A5${amount.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  return `${amount}`;
+  const n = Math.round(amount);
+  if (currency === "USD") return `$${n.toLocaleString("en-US")}`;
+  if (currency === "EUR") return `\u20AC${n.toLocaleString("en-US")}`;
+  if (currency === "HKD") return `HK$${n.toLocaleString("en-US")}`;
+  if (currency === "JPY") return `\u00A5${n.toLocaleString("en-US")}`;
+  return `${n}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -28,20 +35,36 @@ export async function POST(req: NextRequest) {
     const token = process.env.AI_BUILDER_TOKEN!;
 
     // FX rates
-    const fxRes = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
-    const fxJson = await fxRes.json();
-    const rates: Record<string, number> = fxJson.rates ?? {};
-    const hkdRate = rates.HKD ?? 7.85;
-    const jpyRate = rates.JPY ?? 150;
-    const eurRate = rates.EUR ?? 0.92;
+    let hkdRate = 7.85, jpyRate = 150, eurRate = 0.92;
+    try {
+      const fxRes = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
+      const fxJson = await fxRes.json();
+      hkdRate = fxJson.rates?.HKD ?? hkdRate;
+      jpyRate = fxJson.rates?.JPY ?? jpyRate;
+      eurRate = fxJson.rates?.EUR ?? eurRate;
+    } catch {}
 
-    // Parallel searches
+    // Parallel searches — broader queries to catch boutique/press prices
     const [usResults, hkResults, jpResults, frResults] = await Promise.all([
-      tavilySearch(`${confirmedQuery} price USD official retail`, token),
-      tavilySearch(`${confirmedQuery} Hong Kong price HKD official`, token),
-      tavilySearch(`${confirmedQuery} Japan price JPY official`, token),
-      tavilySearch(`${confirmedQuery} France prix EUR officiel`, token),
+      tavilySearch(`"${confirmedQuery}" price USD`, token),
+      tavilySearch(`"${confirmedQuery}" price Hong Kong HKD`, token),
+      tavilySearch(`"${confirmedQuery}" price Japan JPY`, token),
+      tavilySearch(`"${confirmedQuery}" price France EUR`, token),
     ]);
+
+    // Fallback broader searches if empty
+    const brandName = brand || confirmedQuery.split(" ")[0];
+    const [usF, hkF, jpF, frF] = await Promise.all([
+      usResults ? Promise.resolve("") : tavilySearch(`${brandName} ${confirmedQuery} retail price`, token),
+      hkResults ? Promise.resolve("") : tavilySearch(`${brandName} ${confirmedQuery} Hong Kong price`, token),
+      jpResults ? Promise.resolve("") : tavilySearch(`${brandName} ${confirmedQuery} Japan price yen`, token),
+      frResults ? Promise.resolve("") : tavilySearch(`${brandName} ${confirmedQuery} France price euros`, token),
+    ]);
+
+    const allUS = [usResults, usF].filter(Boolean).join("\n");
+    const allHK = [hkResults, hkF].filter(Boolean).join("\n");
+    const allJP = [jpResults, jpF].filter(Boolean).join("\n");
+    const allFR = [frResults, frF].filter(Boolean).join("\n");
 
     const llmRes = await fetch("https://space.ai-builders.com/backend/v1/chat/completions", {
       method: "POST",
@@ -51,11 +74,18 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `You are a luxury goods pricing expert. Extract prices from search results. Return ONLY valid JSON, no markdown. For each region return the price AS FOUND on the website (may be tax-inclusive). Set taxInclusive:true if the price includes tax. If no price found set rawPrice:null and confidence:"unavailable".`,
+            content: `You are a luxury goods pricing expert. Extract retail prices from web search results. 
+Rules:
+- Return ONLY valid JSON, no markdown, no code blocks
+- For Japan prices found tax-inclusive (10% tax): set taxInclusive:true
+- For France prices found tax-inclusive (20% VAT): set taxInclusive:true  
+- If no price found for a region, set rawPrice:null and confidence:"unavailable"
+- Many luxury brands (Harry Winston, Cartier, Hermes, Van Cleef) do NOT publish prices online. For these, look for: press articles mentioning prices, auction results, secondhand market prices, or estimates from jewelry review sites. Set confidence:"medium" if from unofficial source.
+- Always provide the officialUrl for the brand's regional website even if price is unavailable`,
           },
           {
             role: "user",
-            content: `Product: ${confirmedQuery}\nBrand: ${brand}\n\nUS search results:\n${usResults}\n\nHong Kong search results:\n${hkResults}\n\nJapan search results:\n${jpResults}\n\nFrance search results:\n${frResults}\n\nReturn JSON: {"product":"full product name","brand":"brand name","regions":[{"region":"US","flag":"\uD83C\uDDFA\uD83C\uDDF8","currency":"USD","rawPrice":5200,"taxInclusive":false,"officialUrl":"https://www.chanel.com/us/","confidence":"high","notes":null},{"region":"Hong Kong","flag":"\uD83C\uDDED\uD83C\uDDF0","currency":"HKD","rawPrice":41000,"taxInclusive":false,"officialUrl":"https://www.chanel.com/hk/","confidence":"high","notes":null},{"region":"Japan","flag":"\uD83C\uDDEF\uD83C\uDDF5","currency":"JPY","rawPrice":968000,"taxInclusive":true,"officialUrl":"https://www.chanel.com/ja_JP/","confidence":"high","notes":null},{"region":"France","flag":"\uD83C\uDDEB\uD83C\uDDF7","currency":"EUR","rawPrice":7140,"taxInclusive":true,"officialUrl":"https://www.chanel.com/fr_FR/","confidence":"high","notes":null}]}`,
+            content: `Product: ${confirmedQuery}\nBrand: ${brandName}\n\nUS search results:\n${allUS || "No results"}\n\nHong Kong results:\n${allHK || "No results"}\n\nJapan results:\n${allJP || "No results"}\n\nFrance results:\n${allFR || "No results"}\n\nReturn JSON:\n{"product":"full product name","brand":"brand name","regions":[{"region":"US","flag":"\uD83C\uDDFA\uD83C\uDDF8","currency":"USD","rawPrice":5200,"taxInclusive":false,"officialUrl":"https://www.harrywinston.com/en/","confidence":"high","notes":null},{"region":"Hong Kong","flag":"\uD83C\uDDED\uD83C\uDDF0","currency":"HKD","rawPrice":null,"taxInclusive":false,"officialUrl":"https://www.harrywinston.com/en/","confidence":"unavailable","notes":null},{"region":"Japan","flag":"\uD83C\uDDEF\uD83C\uDDF5","currency":"JPY","rawPrice":968000,"taxInclusive":true,"officialUrl":"https://www.harrywinston.com/ja/","confidence":"medium","notes":null},{"region":"France","flag":"\uD83C\uDDEB\uD83C\uDDF7","currency":"EUR","rawPrice":7140,"taxInclusive":true,"officialUrl":"https://www.harrywinston.com/fr/","confidence":"high","notes":null}]}`,
           },
         ],
       }),
@@ -113,13 +143,12 @@ export async function POST(req: NextRequest) {
         exchangeRate,
         taxNote: taxNotes[r.region] ?? "",
         officialUrl: r.officialUrl,
-        confidence: (r.rawPrice ? r.confidence : "unavailable") as RegionPrice["confidence"],
+        confidence: (!r.rawPrice ? "unavailable" : r.confidence) as RegionPrice["confidence"],
         notes: r.notes,
         isBest: false,
       };
     });
 
-    // Find best price
     const withPrice = regions.filter(r => r.priceUSD && r.confidence !== "unavailable");
     let bestRegion: string | null = null;
     if (withPrice.length > 0) {
