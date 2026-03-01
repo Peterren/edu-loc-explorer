@@ -24,18 +24,15 @@ export interface PriceResult {
   bestRegion: string | null;
 }
 
-export interface ClarifyQuestion {
-  id: string;
-  label: string;
-  type: "select" | "text";
-  options?: string[];
-  required: boolean;
-}
-
-export interface ClarifyResponse {
-  productUrl?: string;
-  questions: ClarifyQuestion[];
-  productSummary: string;
+export interface ProductInfo {
   brand: string;
+  product: string;
+  sku: string | null;
+  homeRegion: string;
+  homeFlag: string;
+  homeCurrency: string;
+  homePrice: number | null;
+  homePriceLabel: string | null;
+  officialUrl: string;
+  confidence: string;
 }
-
